@@ -18,11 +18,26 @@ APPSTORE_COUNTRIES = ["us", "ca", "gb", "de", "fr", "es", "br", "ro", "au", "nz"
 APPSTORE_CATEGORIES = {
     "free":              None,
     "free_games":        6014,
-    "free_social":       6005,
+    "free_business":     6000,
+    "free_education":    6017,
     "free_entertainment":6016,
+    "free_finance":      6015,
+    "free_food":         6023,
+    "free_health":       6013,
+    "free_lifestyle":    6012,
+    "free_medical":      6020,
+    "free_music":        6011,
+    "free_navigation":   6010,
+    "free_news":         6009,
     "free_photo":        6008,
     "free_productivity": 6007,
-    "free_finance":      6015,
+    "free_reference":    6006,
+    "free_shopping":     6024,
+    "free_social":       6005,
+    "free_sports":       6004,
+    "free_travel":       6003,
+    "free_utilities":    6002,
+    "free_weather":      6001,
 }
 
 APPSTORE_CHART_SIZE = 100  # track full top 100

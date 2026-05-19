@@ -9,7 +9,6 @@
   body { font-family: -apple-system, BlinkMacSystemFont, sans-serif;
          background: #0a0a0a; color: #e8e8e8; display: flex; min-height: 100vh; font-size: 14px; }
 
-  /* Sidebar */
   .sidebar { width: 180px; flex-shrink: 0; background: #0f0f0f;
              border-right: 1px solid #1a1a1a; padding: 20px 0; overflow-y: auto; }
   .sidebar .logo { font-size: 12px; font-weight: 700; text-transform: uppercase;
@@ -22,22 +21,11 @@
   .sidebar .count { font-size: 11px; color: #333; }
   .sidebar a.active .count { color: #555; }
 
-  /* Main */
   .main { flex: 1; padding: 32px 40px; overflow-y: auto; }
   .header { display: flex; align-items: baseline; gap: 16px; margin-bottom: 28px; }
   .header h1 { font-size: 18px; font-weight: 600; }
   .header .meta { font-size: 12px; color: #444; }
 
-  /* Tabs */
-  .tabs { display: flex; gap: 2px; margin-bottom: 24px;
-          border-bottom: 1px solid #1a1a1a; }
-  .tab { padding: 8px 16px; font-size: 12px; font-weight: 500; color: #444;
-         cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
-         background: none; border-top: none; border-left: none; border-right: none; }
-  .tab.active { color: #fff; border-bottom-color: #fff; }
-  .tab:hover { color: #aaa; }
-
-  /* App list */
   .app-list { display: grid; gap: 1px; }
   .app-row { display: grid; grid-template-columns: 40px 1fr auto;
              align-items: center; gap: 12px; padding: 12px 0;
@@ -49,30 +37,21 @@
                            background: #1a1a1a; flex-shrink: 0; }
   .app-info { min-width: 0; }
   .app-name { font-weight: 600; color: #fff; text-decoration: none;
-              white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-              display: block; }
+              white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
   .app-name:hover { text-decoration: underline; }
   .app-meta { font-size: 11px; color: #555; margin-top: 3px; }
-  .app-meta .dev { color: #666; }
   .app-right { text-align: right; flex-shrink: 0; }
   .rank { font-size: 16px; font-weight: 700; color: #fff; }
-  .rank-prev { font-size: 11px; color: #333; margin-top: 2px; }
-  .rank-prev.up { color: #3a7; }
+  .rank-sub { font-size: 11px; margin-top: 2px; }
+  .rank-sub.up { color: #3a7; }
+  .rank-sub.new { color: #69b; }
 
-  /* Badges */
   .badge { display: inline-block; padding: 1px 6px; border-radius: 3px;
-           font-size: 10px; font-weight: 600; margin-right: 4px; }
-  .badge-new { background: #1a2e1a; color: #4a9; }
-  .badge-multi { background: #1e1e2e; color: #69b; }
+           font-size: 10px; font-weight: 600; margin-right: 4px; vertical-align: middle; }
+  .badge-new { background: #0e1e2e; color: #69b; }
+  .badge-rising { background: #0e1e14; color: #3a7; }
 
   .empty { color: #333; font-size: 13px; padding: 40px 0; }
-
-  /* Filter bar */
-  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
-  .filter-btn { padding: 4px 12px; border-radius: 20px; font-size: 11px;
-                border: 1px solid #222; background: none; color: #555;
-                cursor: pointer; transition: all .15s; }
-  .filter-btn.active, .filter-btn:hover { border-color: #444; color: #ccc; background: #1a1a1a; }
 </style>
 </head>
 <body>
@@ -93,27 +72,14 @@
 </nav>
 
 <main class="main">
-  {% set new_entries = breakouts | selectattr("breakout_type", "equalto", "new_entry") | list %}
-  {% set rising = breakouts | selectattr("breakout_type", "equalto", "rising") | list %}
-  {% set multi = breakouts | selectattr("country_count", "gt", 1) | list %}
-
   <div class="header">
     <h1>Breakout Apps</h1>
-    <span class="meta">{{ selected_date }} &nbsp;·&nbsp; {{ breakouts|length }} apps &nbsp;·&nbsp;
-      {{ new_entries|length }} new entries &nbsp;·&nbsp; {{ rising|length }} rising
-    </span>
+    <span class="meta">{{ selected_date }} &nbsp;·&nbsp; {{ breakouts|length }} apps</span>
   </div>
 
   {% if breakouts %}
-
-  <div class="tabs">
-    <button class="tab active" onclick="showTab('new', this)">New Entries ({{ new_entries|length }})</button>
-    <button class="tab" onclick="showTab('rising', this)">Rising ({{ rising|length }})</button>
-    <button class="tab" onclick="showTab('multi', this)">Multi-country ({{ multi|length }})</button>
-  </div>
-
-  <div id="tab-new" class="app-list">
-    {% for app in new_entries %}
+  <div class="app-list">
+    {% for app in breakouts %}
     <div class="app-row">
       {% if app.icon_url %}
       <img class="app-icon" src="{{ app.icon_url }}" loading="lazy" alt="">
@@ -121,40 +87,16 @@
       <div class="app-icon-placeholder"></div>
       {% endif %}
       <div class="app-info">
-        <a class="app-name" href="{{ app.appstore_url }}" target="_blank">{{ app.app_name }}</a>
-        <div class="app-meta">
-          <span class="dev">{{ app.developer or '' }}</span>
-          &nbsp;·&nbsp; {{ CHART_LABEL.get(app.chart_type, app.chart_type) }}
-          &nbsp;·&nbsp;
-          {% for c in app.countries %}{{ COUNTRY_FLAG.get(c, c.upper()) }} {% endfor %}
-          {% if app.country_count > 1 %}
-          <span class="badge badge-multi">{{ app.country_count }} countries</span>
+        <a class="app-name" href="{{ app.appstore_url }}" target="_blank">
+          {% if app.breakout_type == "new_entry" %}
+          <span class="badge badge-new">new entry</span>
+          {% else %}
+          <span class="badge badge-rising">rising</span>
           {% endif %}
-        </div>
-      </div>
-      <div class="app-right">
-        <div class="rank">#{{ app.rank_today }}</div>
-        <div class="rank-prev">new entry</div>
-      </div>
-    </div>
-    {% endfor %}
-    {% if not new_entries %}
-    <p class="empty">No new entries — run again tomorrow once there's historical data to compare against.</p>
-    {% endif %}
-  </div>
-
-  <div id="tab-rising" class="app-list" style="display:none">
-    {% for app in rising %}
-    <div class="app-row">
-      {% if app.icon_url %}
-      <img class="app-icon" src="{{ app.icon_url }}" loading="lazy" alt="">
-      {% else %}
-      <div class="app-icon-placeholder"></div>
-      {% endif %}
-      <div class="app-info">
-        <a class="app-name" href="{{ app.appstore_url }}" target="_blank">{{ app.app_name }}</a>
+          {{ app.app_name }}
+        </a>
         <div class="app-meta">
-          <span class="dev">{{ app.developer or '' }}</span>
+          {{ app.developer or '' }}
           &nbsp;·&nbsp; {{ CHART_LABEL.get(app.chart_type, app.chart_type) }}
           &nbsp;·&nbsp;
           {% for c in app.countries %}{{ COUNTRY_FLAG.get(c, c.upper()) }} {% endfor %}
@@ -162,56 +104,19 @@
       </div>
       <div class="app-right">
         <div class="rank">#{{ app.rank_today }}</div>
-        {% if app.rank_prev %}
-        <div class="rank-prev up">▲ {{ app.rank_prev - app.rank_today }} from #{{ app.rank_prev }}</div>
+        {% if app.breakout_type == "rising" and app.rank_prev %}
+        <div class="rank-sub up">▲ {{ app.rank_prev - app.rank_today }} from #{{ app.rank_prev }}</div>
+        {% else %}
+        <div class="rank-sub new">new</div>
         {% endif %}
       </div>
     </div>
     {% endfor %}
-    {% if not rising %}
-    <p class="empty">No rising apps today.</p>
-    {% endif %}
   </div>
-
-  <div id="tab-multi" class="app-list" style="display:none">
-    {% for app in multi %}
-    <div class="app-row">
-      {% if app.icon_url %}
-      <img class="app-icon" src="{{ app.icon_url }}" loading="lazy" alt="">
-      {% else %}
-      <div class="app-icon-placeholder"></div>
-      {% endif %}
-      <div class="app-info">
-        <a class="app-name" href="{{ app.appstore_url }}" target="_blank">{{ app.app_name }}</a>
-        <div class="app-meta">
-          <span class="dev">{{ app.developer or '' }}</span>
-          &nbsp;·&nbsp;
-          {% for c in app.countries %}{{ COUNTRY_FLAG.get(c, c.upper()) }} {% endfor %}
-          <span class="badge badge-multi">{{ app.country_count }} countries</span>
-        </div>
-      </div>
-      <div class="app-right">
-        <div class="rank">#{{ app.rank_today }}</div>
-      </div>
-    </div>
-    {% endfor %}
-    {% if not multi %}
-    <p class="empty">No multi-country breakouts today.</p>
-    {% endif %}
-  </div>
-
   {% else %}
   <p class="empty">No breakout data for {{ selected_date }}. Run <code>python pipeline.py</code>.</p>
   {% endif %}
 </main>
 
-<script>
-function showTab(name, btn) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.app-list').forEach(el => el.style.display = 'none');
-  btn.classList.add('active');
-  document.getElementById('tab-' + name).style.display = 'grid';
-}
-</script>
 </body>
 </html>

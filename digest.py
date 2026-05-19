@@ -12,13 +12,28 @@ COUNTRY_FLAG = {
 }
 
 CHART_LABEL = {
-    "free":               "Overall Free",
+    "free":               "Overall",
     "free_games":         "Games",
-    "free_social":        "Social",
+    "free_business":      "Business",
+    "free_education":     "Education",
     "free_entertainment": "Entertainment",
+    "free_finance":       "Finance",
+    "free_food":          "Food & Drink",
+    "free_health":        "Health & Fitness",
+    "free_lifestyle":     "Lifestyle",
+    "free_medical":       "Medical",
+    "free_music":         "Music",
+    "free_navigation":    "Navigation",
+    "free_news":          "News",
     "free_photo":         "Photo & Video",
     "free_productivity":  "Productivity",
-    "free_finance":       "Finance",
+    "free_reference":     "Reference",
+    "free_shopping":      "Shopping",
+    "free_social":        "Social",
+    "free_sports":        "Sports",
+    "free_travel":        "Travel",
+    "free_utilities":     "Utilities",
+    "free_weather":       "Weather",
 }
 
 
