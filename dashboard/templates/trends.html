@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project Snake — Trends</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+         background: #0a0a0a; color: #e8e8e8; display: flex; min-height: 100vh; font-size: 14px; }
+
+  /* Sidebar */
+  .sidebar { width: 160px; flex-shrink: 0; background: #0f0f0f;
+             border-right: 1px solid #1a1a1a; padding: 20px 0; overflow-y: auto; }
+  .sidebar .logo { font-size: 12px; font-weight: 700; text-transform: uppercase;
+                   letter-spacing: .12em; color: #444; padding: 0 16px 20px; }
+  .sidebar a { display: flex; justify-content: space-between; align-items: center;
+               padding: 7px 16px; font-size: 12px; color: #555; text-decoration: none; }
+  .sidebar a:hover { color: #ccc; }
+  .sidebar a.active { color: #fff; background: #1a1a1a; }
+
+  /* Main */
+  .main { flex: 1; padding: 32px 40px; overflow-y: auto; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 2px; margin-bottom: 28px; border-bottom: 1px solid #1a1a1a; }
+  .tabs a { padding: 8px 18px; font-size: 13px; font-weight: 500; color: #444;
+            text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tabs a:hover { color: #aaa; }
+  .tabs a.active { color: #fff; border-bottom-color: #fff; }
+
+  .header { font-size: 12px; color: #444; margin-bottom: 24px; }
+
+  /* Trend cards */
+  .trend-list { display: grid; gap: 1px; }
+
+  .trend-card { display: grid; grid-template-columns: 100px 1fr; gap: 20px;
+                padding: 20px 0; border-bottom: 1px solid #111; align-items: start; }
+  .trend-card:last-child { border-bottom: none; }
+
+  .trend-img { width: 100px; height: 68px; object-fit: cover; border-radius: 6px;
+               background: #1a1a1a; flex-shrink: 0; }
+  .trend-img-placeholder { width: 100px; height: 68px; border-radius: 6px; background: #1a1a1a; }
+
+  .trend-body { min-width: 0; }
+  .trend-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .trend-topic { font-size: 16px; font-weight: 700; color: #fff;
+                 text-transform: capitalize; }
+  .trend-volume { font-size: 12px; font-weight: 600; color: #fff;
+                  background: #1e1e1e; border: 1px solid #2a2a2a;
+                  padding: 2px 10px; border-radius: 20px; white-space: nowrap; }
+  .trend-volume.hot { background: #1e1208; border-color: #3a2a10; color: #d4812a; }
+  .trend-flags { font-size: 14px; letter-spacing: 2px; }
+
+  /* Related news */
+  .news-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+  .news-item { display: flex; align-items: flex-start; gap: 10px; }
+  .news-thumb { width: 48px; height: 34px; object-fit: cover; border-radius: 4px;
+                background: #1a1a1a; flex-shrink: 0; }
+  .news-thumb-placeholder { width: 48px; height: 34px; border-radius: 4px; background: #1a1a1a; flex-shrink: 0; }
+  .news-text { min-width: 0; }
+  .news-title { font-size: 12px; color: #aaa; line-height: 1.4; text-decoration: none;
+                display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .news-title:hover { color: #fff; }
+  .news-source { font-size: 10px; color: #444; margin-top: 1px; }
+
+  .empty { color: #333; font-size: 13px; padding: 40px 0; }
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="logo">Snake</div>
+  {% for d in dates %}
+  <a href="/{{ d }}/trends" class="{{ 'active' if d == selected_date else '' }}">
+    <span>{{ d }}</span>
+  </a>
+  {% endfor %}
+  {% if not dates %}
+  <span style="padding:16px;display:block;font-size:12px;color:#333">No data yet.</span>
+  {% endif %}
+</nav>
+
+<main class="main">
+  <div class="tabs">
+    <a href="/{{ selected_date }}/breakouts">Breakouts</a>
+    <a href="/{{ selected_date }}/news">News</a>
+    <a href="/{{ selected_date }}/trends" class="active">Trends</a>
+  </div>
+
+  <div class="header">{{ trends|length }} trending topics &nbsp;·&nbsp; {{ selected_date }}</div>
+
+  {% if trends %}
+  <div class="trend-list">
+    {% for t in trends %}
+    <div class="trend-card">
+      {% if t.picture_url %}
+      <img class="trend-img" src="{{ t.picture_url }}" loading="lazy" alt="">
+      {% else %}
+      <div class="trend-img-placeholder"></div>
+      {% endif %}
+
+      <div class="trend-body">
+        <div class="trend-top">
+          <span class="trend-topic">{{ t.topic }}</span>
+          {% if t.traffic %}
+          <span class="trend-volume {{ 'hot' if '+' in t.traffic and t.traffic[0] in '123456789' and t.traffic|replace('+','')|replace(',','')|int > 5000 else '' }}">
+            {{ t.traffic }} searches
+          </span>
+          {% endif %}
+          <span class="trend-flags">
+            {% for c in t.countries %}{{ TREND_COUNTRIES.get(c, c) }}{% endfor %}
+          </span>
+        </div>
+
+        {% if t.news %}
+        <div class="news-list">
+          {% for n in t.news[:3] %}
+          <div class="news-item">
+            {% if n.picture %}
+            <img class="news-thumb" src="{{ n.picture }}" loading="lazy" alt="">
+            {% else %}
+            <div class="news-thumb-placeholder"></div>
+            {% endif %}
+            <div class="news-text">
+              <a class="news-title" href="{{ n.url }}" target="_blank">{{ n.title }}</a>
+              <div class="news-source">{{ n.source }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty">No trend data for {{ selected_date }}. Run <code>python pipeline.py</code>.</p>
+  {% endif %}
+</main>
+
+</body>
+</html>

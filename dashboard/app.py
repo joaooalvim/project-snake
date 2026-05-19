@@ -9,6 +9,7 @@ from fastapi.templating import Jinja2Templates
 from storage.db import (
     init_db, get_breakouts, get_breakout_dates,
     get_articles, get_article_dates,
+    get_trends, get_trend_dates,
 )
 
 app = FastAPI(title="Project Snake")
@@ -49,11 +50,19 @@ templates.env.globals["COUNTRY_FLAG"] = COUNTRY_FLAG
 templates.env.globals["CHART_LABEL"] = CHART_LABEL
 
 
+TREND_COUNTRIES = {
+    "US": "🇺🇸", "GB": "🇬🇧", "CA": "🇨🇦", "AU": "🇦🇺",
+    "BR": "🇧🇷", "DE": "🇩🇪", "FR": "🇫🇷", "ES": "🇪🇸",
+}
+templates.env.globals["TREND_COUNTRIES"] = TREND_COUNTRIES
+
+
 def _get_dates():
     """Merged sorted list of all dates that have any data."""
     b = {d["date"] for d in get_breakout_dates(60)}
     a = {d["date"] for d in get_article_dates(60)}
-    return sorted(b | a, reverse=True)
+    t = {d["date"] for d in get_trend_dates(60)}
+    return sorted(b | a | t, reverse=True)
 
 
 def _group_breakouts(rows: list) -> list:
@@ -116,3 +125,38 @@ async def api_breakouts(date_str: str):
 @app.get("/api/news/{date_str}")
 async def api_news(date_str: str):
     return get_articles(date_str)
+
+
+@app.get("/{date_str}/trends", response_class=HTMLResponse)
+async def trends_page(request: Request, date_str: str):
+    dates = _get_dates()
+    raw = get_trends(date_str)
+
+    # Group by topic, aggregate countries
+    from collections import defaultdict
+    by_topic = defaultdict(list)
+    for r in raw:
+        by_topic[r["topic"]].append(r)
+
+    grouped = []
+    for topic, rows in by_topic.items():
+        first = rows[0]
+        grouped.append({
+            "topic":       topic,
+            "traffic":     first["traffic"],
+            "picture_url": first["picture_url"],
+            "pic_source":  first["pic_source"],
+            "news":        first["news"],
+            "countries":   [r["country"] for r in rows],
+            "country_count": len(rows),
+            "min_rank":    min(r["rank"] for r in rows),
+        })
+    grouped.sort(key=lambda x: (-x["country_count"], x["min_rank"]))
+
+    return templates.TemplateResponse("trends.html", {
+        "request":       request,
+        "dates":         dates,
+        "selected_date": date_str,
+        "active_tab":    "trends",
+        "trends":        grouped,
+    })

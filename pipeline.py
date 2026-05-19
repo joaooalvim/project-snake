@@ -4,10 +4,10 @@ Run this daily (via scheduler.py or directly: python pipeline.py).
 """
 from datetime import date
 
-from collectors import appstore, techcrunch, twitter
+from collectors import appstore, techcrunch, twitter, trends as trends_collector
 from detectors import breakout as breakout_detector
 from storage.db import (
-    init_db, save_chart_entries, save_articles, save_tweets,
+    init_db, save_chart_entries, save_articles, save_tweets, save_trends,
     get_day_data, save_digest, get_breakouts,
 )
 
@@ -30,6 +30,12 @@ def collect(today: str) -> dict:
     if tweets:
         save_tweets(today, tweets)
         print(f"  [twitter] {len(tweets)} tweets")
+
+    print("[pipeline] collecting Google Trends")
+    all_trends = trends_collector.fetch()
+    for country, items in all_trends.items():
+        if items:
+            save_trends(today, country, items)
 
     return charts
 

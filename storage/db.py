@@ -51,6 +51,22 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_breakouts_date
             ON breakouts(date DESC);
 
+        CREATE TABLE IF NOT EXISTS trends (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            date        TEXT NOT NULL,
+            country     TEXT NOT NULL,
+            rank        INTEGER NOT NULL,
+            topic       TEXT NOT NULL,
+            traffic     TEXT,
+            picture_url TEXT,
+            pic_source  TEXT,
+            news_json   TEXT,
+            fetched_at  TEXT NOT NULL,
+            UNIQUE(date, country, topic)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_trends_date ON trends(date DESC);
+
         CREATE TABLE IF NOT EXISTS articles (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             date        TEXT NOT NULL,
@@ -167,6 +183,45 @@ def get_breakout_dates(limit: int = 30) -> list:
         """SELECT date, COUNT(*) as count FROM breakouts
            GROUP BY date ORDER BY date DESC LIMIT ?""",
         (limit,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def save_trends(date: str, country: str, items: list):
+    conn = get_conn()
+    now = datetime.utcnow().isoformat()
+    conn.executemany(
+        """INSERT OR IGNORE INTO trends
+           (date, country, rank, topic, traffic, picture_url, pic_source, news_json, fetched_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        [(date, country, t["rank"], t["topic"], t.get("traffic"),
+          t.get("picture_url"), t.get("pic_source"), json.dumps(t.get("news", [])), now)
+         for t in items],
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_trends(date: str) -> list:
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT * FROM trends WHERE date = ? ORDER BY country, rank", (date,)
+    ).fetchall()
+    conn.close()
+    result = []
+    for r in rows:
+        d = dict(r)
+        d["news"] = json.loads(d["news_json"] or "[]")
+        result.append(d)
+    return result
+
+
+def get_trend_dates(limit: int = 60) -> list:
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT date, COUNT(DISTINCT topic) as count FROM trends
+           GROUP BY date ORDER BY date DESC LIMIT ?""", (limit,)
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
