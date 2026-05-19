@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 from storage.db import (
     init_db, get_breakouts, get_breakout_dates,
     get_articles, get_article_dates,
-    get_trends, get_trend_dates, get_us_trends_48h,
+    get_trends, get_trend_dates, get_us_trends_24h,
 )
 
 app = FastAPI(title="Project Snake")
@@ -130,7 +130,7 @@ async def api_news(date_str: str):
 @app.get("/{date_str}/trends", response_class=HTMLResponse)
 async def trends_page(request: Request, date_str: str):
     dates = _get_dates()
-    trends = get_us_trends_48h(date_str)
+    trends = get_us_trends_24h(date_str)
     return templates.TemplateResponse("trends.html", {
         "request":       request,
         "dates":         dates,

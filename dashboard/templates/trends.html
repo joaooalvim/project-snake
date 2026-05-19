@@ -91,7 +91,7 @@
     <a href="/{{ selected_date }}/trends" class="active">Trends</a>
   </div>
 
-  <div class="header">🇺🇸 US &nbsp;·&nbsp; {{ trends|length }} trending topics &nbsp;·&nbsp; last 48h</div>
+  <div class="header">🇺🇸 US &nbsp;·&nbsp; {{ trends|length }} trending topics &nbsp;·&nbsp; last 24h</div>
 
   {% if trends %}
   <div class="trend-list">
@@ -110,9 +110,6 @@
           <span class="trend-volume {{ 'hot' if '+' in t.traffic and t.traffic[0] in '123456789' and t.traffic|replace('+','')|replace(',','')|int > 5000 else '' }}">
             {{ t.traffic }} searches
           </span>
-          {% endif %}
-          {% if t.from_yesterday %}
-          <span class="badge-yesterday">yesterday</span>
           {% endif %}
         </div>
 
