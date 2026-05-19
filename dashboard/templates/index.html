@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project Snake</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         background: #0a0a0a; color: #e8e8e8; display: flex; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar { width: 220px; flex-shrink: 0; background: #111; border-right: 1px solid #222;
+             padding: 24px 0; overflow-y: auto; }
+  .sidebar h1 { font-size: 13px; font-weight: 700; text-transform: uppercase;
+                letter-spacing: 0.12em; color: #666; padding: 0 20px 16px; }
+  .sidebar a { display: block; padding: 8px 20px; font-size: 13px; color: #aaa;
+               text-decoration: none; transition: background 0.15s; }
+  .sidebar a:hover { background: #1a1a1a; color: #fff; }
+  .sidebar a.active { background: #1e1e1e; color: #fff; border-left: 2px solid #fff; }
+
+  /* Main */
+  .main { flex: 1; padding: 40px 48px; max-width: 900px; }
+  .date-label { font-size: 12px; color: #555; margin-bottom: 8px; }
+  .headline { font-size: 22px; font-weight: 600; line-height: 1.4; margin-bottom: 32px;
+              padding: 16px 20px; background: #111; border-left: 3px solid #fff; }
+
+  .section { margin-bottom: 36px; }
+  .section h2 { font-size: 11px; font-weight: 700; text-transform: uppercase;
+                letter-spacing: 0.12em; color: #555; margin-bottom: 14px; }
+  .section ul { list-style: none; }
+  .section li { padding: 8px 0; border-bottom: 1px solid #1a1a1a;
+                font-size: 14px; line-height: 1.5; color: #ccc; }
+  .section li:last-child { border-bottom: none; }
+  .section a { color: #e8e8e8; }
+
+  .article-why { display: block; font-size: 12px; color: #666; margin-top: 2px; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 3px;
+          font-size: 11px; background: #1e1e1e; color: #888; margin-right: 4px; }
+
+  .meta { font-size: 12px; color: #444; margin-bottom: 24px; }
+  .empty { color: #444; font-size: 14px; font-style: italic; padding: 40px 0; }
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <h1>Project Snake</h1>
+  {% for d in digests %}
+  <a href="/digest/{{ d.date }}" class="{{ 'active' if d.date == selected_date else '' }}">
+    {{ d.date }}{% if d.email_sent %} ✓{% endif %}
+  </a>
+  {% endfor %}
+  {% if not digests %}
+  <span style="padding:20px;display:block;font-size:13px;color:#444">No digests yet.<br>Run pipeline.py</span>
+  {% endif %}
+</nav>
+
+<main class="main">
+  {% if digest %}
+  {% set s = digest.summary %}
+  <p class="date-label">{{ selected_date }}</p>
+  <div class="headline">{{ s.headline or "No headline" }}</div>
+
+  {% if s.raw_counts %}
+  <p class="meta">
+    {{ s.raw_counts.chart_entries or 0 }} chart entries &nbsp;·&nbsp;
+    {{ s.raw_counts.articles or 0 }} articles &nbsp;·&nbsp;
+    {{ s.raw_counts.tweets or 0 }} tweets
+  </p>
+  {% endif %}
+
+  {% if s.chart_highlights %}
+  <div class="section">
+    <h2>Chart Highlights</h2>
+    <ul>{% for item in s.chart_highlights %}<li>{{ item }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  {% if s.top_articles %}
+  <div class="section">
+    <h2>Top Articles</h2>
+    <ul>
+      {% for a in s.top_articles %}
+      <li>
+        <a href="{{ a.url or '#' }}" target="_blank">{{ a.title }}</a>
+        <span class="article-why">{{ a.why_it_matters or '' }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if s.twitter_signals %}
+  <div class="section">
+    <h2>Twitter Signals</h2>
+    <ul>{% for item in s.twitter_signals %}<li>{{ item }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  {% if s.watch_list %}
+  <div class="section">
+    <h2>Watch List</h2>
+    <ul>{% for item in s.watch_list %}<li>{{ item }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <p class="empty">No digest available for {{ selected_date }}.<br>Run <code>python pipeline.py</code> to generate one.</p>
+  {% endif %}
+</main>
+
+</body>
+</html>
