@@ -30,6 +30,9 @@
   .tabs a.active { color: #fff; border-bottom-color: #fff; }
 
   .header { font-size: 12px; color: #444; margin-bottom: 24px; }
+  .badge-yesterday { font-size: 10px; font-weight: 600; color: #555;
+                     background: #1a1a1a; border: 1px solid #222;
+                     padding: 1px 8px; border-radius: 20px; }
 
   /* Trend cards */
   .trend-list { display: grid; gap: 1px; }
@@ -88,7 +91,7 @@
     <a href="/{{ selected_date }}/trends" class="active">Trends</a>
   </div>
 
-  <div class="header">{{ trends|length }} trending topics &nbsp;·&nbsp; {{ selected_date }}</div>
+  <div class="header">🇺🇸 US &nbsp;·&nbsp; {{ trends|length }} trending topics &nbsp;·&nbsp; last 48h</div>
 
   {% if trends %}
   <div class="trend-list">
@@ -108,9 +111,9 @@
             {{ t.traffic }} searches
           </span>
           {% endif %}
-          <span class="trend-flags">
-            {% for c in t.countries %}{{ TREND_COUNTRIES.get(c, c) }}{% endfor %}
-          </span>
+          {% if t.from_yesterday %}
+          <span class="badge-yesterday">yesterday</span>
+          {% endif %}
         </div>
 
         {% if t.news %}

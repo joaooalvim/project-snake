@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 from storage.db import (
     init_db, get_breakouts, get_breakout_dates,
     get_articles, get_article_dates,
-    get_trends, get_trend_dates,
+    get_trends, get_trend_dates, get_us_trends_48h,
 )
 
 app = FastAPI(title="Project Snake")
@@ -130,33 +130,11 @@ async def api_news(date_str: str):
 @app.get("/{date_str}/trends", response_class=HTMLResponse)
 async def trends_page(request: Request, date_str: str):
     dates = _get_dates()
-    raw = get_trends(date_str)
-
-    # Group by topic, aggregate countries
-    from collections import defaultdict
-    by_topic = defaultdict(list)
-    for r in raw:
-        by_topic[r["topic"]].append(r)
-
-    grouped = []
-    for topic, rows in by_topic.items():
-        first = rows[0]
-        grouped.append({
-            "topic":       topic,
-            "traffic":     first["traffic"],
-            "picture_url": first["picture_url"],
-            "pic_source":  first["pic_source"],
-            "news":        first["news"],
-            "countries":   [r["country"] for r in rows],
-            "country_count": len(rows),
-            "min_rank":    min(r["rank"] for r in rows),
-        })
-    grouped.sort(key=lambda x: (-x["country_count"], x["min_rank"]))
-
+    trends = get_us_trends_48h(date_str)
     return templates.TemplateResponse("trends.html", {
         "request":       request,
         "dates":         dates,
         "selected_date": date_str,
         "active_tab":    "trends",
-        "trends":        grouped,
+        "trends":        trends,
     })

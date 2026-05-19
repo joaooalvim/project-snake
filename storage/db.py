@@ -217,6 +217,27 @@ def get_trends(date: str) -> list:
     return result
 
 
+def get_us_trends_48h(today: str) -> list:
+    """US trends from the last 2 available dates, deduped by topic (newest wins)."""
+    from datetime import date, timedelta
+    yesterday = (date.fromisoformat(today) - timedelta(days=1)).isoformat()
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT * FROM trends WHERE country = 'US' AND date IN (?, ?)
+           ORDER BY date DESC, rank ASC""",
+        (today, yesterday),
+    ).fetchall()
+    conn.close()
+    seen = {}
+    for r in rows:
+        d = dict(r)
+        d["news"] = json.loads(d["news_json"] or "[]")
+        d["from_yesterday"] = d["date"] != today
+        if d["topic"] not in seen:
+            seen[d["topic"]] = d
+    return list(seen.values())
+
+
 def get_trend_dates(limit: int = 60) -> list:
     conn = get_conn()
     rows = conn.execute(
