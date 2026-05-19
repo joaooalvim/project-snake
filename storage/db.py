@@ -14,61 +14,86 @@ def init_db():
     conn = get_conn()
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS app_charts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TEXT NOT NULL,
-            country TEXT NOT NULL,
-            category TEXT NOT NULL,
-            rank INTEGER NOT NULL,
-            app_id TEXT NOT NULL,
-            app_name TEXT NOT NULL,
-            developer TEXT,
-            genre TEXT,
-            fetched_at TEXT NOT NULL
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            date        TEXT NOT NULL,
+            country     TEXT NOT NULL,
+            category    TEXT NOT NULL,
+            rank        INTEGER NOT NULL,
+            app_id      TEXT NOT NULL,
+            app_name    TEXT NOT NULL,
+            developer   TEXT,
+            genre       TEXT,
+            icon_url    TEXT,
+            fetched_at  TEXT NOT NULL,
+            UNIQUE(date, country, category, app_id)
         );
 
+        CREATE INDEX IF NOT EXISTS idx_charts_lookup
+            ON app_charts(country, category, date, app_id);
+
+        CREATE TABLE IF NOT EXISTS breakouts (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            date            TEXT NOT NULL,
+            app_id          TEXT NOT NULL,
+            app_name        TEXT NOT NULL,
+            developer       TEXT,
+            icon_url        TEXT,
+            chart_type      TEXT NOT NULL,
+            country         TEXT NOT NULL,
+            rank_today      INTEGER NOT NULL,
+            rank_prev       INTEGER,
+            prev_date       TEXT,
+            breakout_type   TEXT NOT NULL,
+            detected_at     TEXT NOT NULL,
+            UNIQUE(date, app_id, chart_type, country)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_breakouts_date
+            ON breakouts(date DESC);
+
         CREATE TABLE IF NOT EXISTS articles (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TEXT NOT NULL,
-            source TEXT NOT NULL,
-            title TEXT NOT NULL,
-            url TEXT NOT NULL UNIQUE,
-            summary TEXT,
-            fetched_at TEXT NOT NULL
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            date        TEXT NOT NULL,
+            source      TEXT NOT NULL,
+            title       TEXT NOT NULL,
+            url         TEXT NOT NULL UNIQUE,
+            summary     TEXT,
+            fetched_at  TEXT NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS tweets (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TEXT NOT NULL,
-            tweet_id TEXT UNIQUE,
-            author TEXT,
-            content TEXT NOT NULL,
-            url TEXT,
-            likes INTEGER DEFAULT 0,
-            fetched_at TEXT NOT NULL
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            date        TEXT NOT NULL,
+            tweet_id    TEXT UNIQUE,
+            author      TEXT,
+            content     TEXT NOT NULL,
+            url         TEXT,
+            likes       INTEGER DEFAULT 0,
+            fetched_at  TEXT NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS digests (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TEXT NOT NULL UNIQUE,
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            date        TEXT NOT NULL UNIQUE,
             summary_json TEXT NOT NULL,
-            email_sent INTEGER DEFAULT 0,
-            created_at TEXT NOT NULL
+            email_sent  INTEGER DEFAULT 0,
+            created_at  TEXT NOT NULL
         );
     """)
     conn.commit()
     conn.close()
 
 
-def save_chart_entries(date: str, country: str, category: str, entries: list[dict]):
+def save_chart_entries(date: str, country: str, category: str, entries: list):
     conn = get_conn()
     now = datetime.utcnow().isoformat()
     conn.executemany(
         """INSERT OR IGNORE INTO app_charts
-           (date, country, category, rank, app_id, app_name, developer, genre, fetched_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+           (date, country, category, rank, app_id, app_name, developer, genre, icon_url, fetched_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         [
             (date, country, category, e["rank"], e["app_id"], e["app_name"],
-             e.get("developer"), e.get("genre"), now)
+             e.get("developer"), e.get("genre"), e.get("icon_url"), now)
             for e in entries
         ],
     )
@@ -76,7 +101,77 @@ def save_chart_entries(date: str, country: str, category: str, entries: list[dic
     conn.close()
 
 
-def save_articles(date: str, source: str, articles: list[dict]):
+def get_recent_app_ids(country: str, category: str, since_date: str, before_date: str) -> set:
+    """Return set of app_ids that appeared in this chart between since_date and before_date."""
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT DISTINCT app_id FROM app_charts
+           WHERE country = ? AND category = ? AND date >= ? AND date < ?""",
+        (country, category, since_date, before_date),
+    ).fetchall()
+    conn.close()
+    return {r["app_id"] for r in rows}
+
+
+def get_last_rank(app_id: str, country: str, category: str, before_date: str):
+    """Return (date, rank) of the most recent chart appearance before today, or None."""
+    conn = get_conn()
+    row = conn.execute(
+        """SELECT date, rank FROM app_charts
+           WHERE app_id = ? AND country = ? AND category = ? AND date < ?
+           ORDER BY date DESC LIMIT 1""",
+        (app_id, country, category, before_date),
+    ).fetchone()
+    conn.close()
+    return (row["date"], row["rank"]) if row else None
+
+
+def save_breakouts(breakouts: list):
+    if not breakouts:
+        return
+    conn = get_conn()
+    now = datetime.utcnow().isoformat()
+    conn.executemany(
+        """INSERT OR IGNORE INTO breakouts
+           (date, app_id, app_name, developer, icon_url, chart_type, country,
+            rank_today, rank_prev, prev_date, breakout_type, detected_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        [
+            (b["date"], b["app_id"], b["app_name"], b.get("developer"),
+             b.get("icon_url"), b["chart_type"], b["country"],
+             b["rank_today"], b.get("rank_prev"), b.get("prev_date"),
+             b["breakout_type"], now)
+            for b in breakouts
+        ],
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_breakouts(date: str) -> list:
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT *, COUNT(*) OVER (PARTITION BY date, app_id) as country_count
+           FROM breakouts WHERE date = ?
+           ORDER BY country_count DESC, rank_today ASC""",
+        (date,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_breakout_dates(limit: int = 30) -> list:
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT date, COUNT(*) as count FROM breakouts
+           GROUP BY date ORDER BY date DESC LIMIT ?""",
+        (limit,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def save_articles(date: str, source: str, articles: list):
     conn = get_conn()
     now = datetime.utcnow().isoformat()
     for a in articles:
@@ -89,12 +184,13 @@ def save_articles(date: str, source: str, articles: list[dict]):
     conn.close()
 
 
-def save_tweets(date: str, tweets: list[dict]):
+def save_tweets(date: str, tweets: list):
     conn = get_conn()
     now = datetime.utcnow().isoformat()
     for t in tweets:
         conn.execute(
-            """INSERT OR IGNORE INTO tweets (date, tweet_id, author, content, url, likes, fetched_at)
+            """INSERT OR IGNORE INTO tweets
+               (date, tweet_id, author, content, url, likes, fetched_at)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (date, t.get("tweet_id"), t.get("author"), t["content"],
              t.get("url"), t.get("likes", 0), now),
@@ -133,7 +229,7 @@ def save_digest(date: str, summary: dict, email_sent: bool = False):
     conn.close()
 
 
-def get_digest(date: str) -> dict | None:
+def get_digest(date: str):
     conn = get_conn()
     row = conn.execute("SELECT * FROM digests WHERE date = ?", (date,)).fetchone()
     conn.close()
@@ -144,7 +240,7 @@ def get_digest(date: str) -> dict | None:
     return d
 
 
-def list_digests(limit: int = 30) -> list[dict]:
+def list_digests(limit: int = 30) -> list:
     conn = get_conn()
     rows = conn.execute(
         "SELECT date, email_sent, created_at FROM digests ORDER BY date DESC LIMIT ?", (limit,)

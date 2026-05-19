@@ -1,81 +1,92 @@
 """
-Formats and sends the daily digest email via Gmail SMTP.
-Requires a Gmail App Password (not your regular password).
+Sends the daily breakout digest email via Gmail SMTP.
 """
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from config import DIGEST_EMAIL, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD
 
+COUNTRY_FLAG = {
+    "us": "🇺🇸", "ca": "🇨🇦", "gb": "🇬🇧", "de": "🇩🇪", "fr": "🇫🇷",
+    "es": "🇪🇸", "br": "🇧🇷", "ro": "🇷🇴", "au": "🇦🇺", "nz": "🇳🇿", "za": "🇿🇦",
+}
+
+CHART_LABEL = {
+    "free":               "Overall Free",
+    "free_games":         "Games",
+    "free_social":        "Social",
+    "free_entertainment": "Entertainment",
+    "free_photo":         "Photo & Video",
+    "free_productivity":  "Productivity",
+    "free_finance":       "Finance",
+}
+
+
+def _flags(countries):
+    return " ".join(COUNTRY_FLAG.get(c.lower(), c.upper()) for c in countries)
+
+
+def _app_row(app: dict, show_prev: bool = False) -> str:
+    countries = _flags(app["countries"])
+    chart = CHART_LABEL.get(app["chart_type"], app["chart_type"])
+    rank_info = f"#{app['rank_today']}"
+    if show_prev and app.get("rank_prev"):
+        rank_info += f" (was #{app['rank_prev']})"
+    multi = f" <span style='color:#888;font-size:11px'>{app['country_count']} countries</span>" if app["country_count"] > 1 else ""
+    return (
+        f"<li style='padding:10px 0;border-bottom:1px solid #1e1e1e'>"
+        f"<a href='{app['appstore_url']}' style='color:#fff;font-weight:600;text-decoration:none'>{app['app_name']}</a>{multi}<br>"
+        f"<span style='color:#888;font-size:12px'>{app.get('developer','')} &nbsp;·&nbsp; {chart} &nbsp;·&nbsp; {rank_info} &nbsp;·&nbsp; {countries}</span>"
+        f"</li>"
+    )
+
 
 def build_html(date: str, summary: dict) -> str:
-    def ul(items):
-        if not items:
-            return "<p><em>No data</em></p>"
-        return "<ul>" + "".join(f"<li>{i}</li>" for i in items) + "</ul>"
+    new_entries = summary.get("new_entries", [])
+    rising = summary.get("rising", [])
 
-    articles_html = ""
-    for a in summary.get("top_articles", []):
-        articles_html += (
-            f'<li><a href="{a.get("url", "#")}">{a.get("title", "")}</a>'
-            f' — {a.get("why_it_matters", "")}</li>'
-        )
-
-    counts = summary.get("raw_counts", {})
-    count_str = (
-        f"{counts.get('chart_entries', '?')} chart entries · "
-        f"{counts.get('articles', '?')} articles · "
-        f"{counts.get('tweets', '?')} tweets"
-    )
+    new_html = "".join(_app_row(a) for a in new_entries[:25]) or "<li style='color:#555'>No new entries today (need more historical data)</li>"
+    rising_html = "".join(_app_row(a, show_prev=True) for a in rising[:15]) or "<li style='color:#555'>No rising apps today</li>"
 
     return f"""<!DOCTYPE html>
 <html>
-<head><meta charset="utf-8">
+<head><meta charset='utf-8'>
 <style>
-  body {{ font-family: -apple-system, sans-serif; max-width: 680px; margin: 0 auto; color: #222; }}
-  h1 {{ font-size: 22px; border-bottom: 2px solid #000; padding-bottom: 8px; }}
-  h2 {{ font-size: 15px; text-transform: uppercase; letter-spacing: 0.05em; color: #555; margin-top: 28px; }}
-  .headline {{ font-size: 18px; font-weight: 600; background: #f5f5f5; padding: 12px 16px; border-left: 4px solid #000; }}
-  .meta {{ font-size: 12px; color: #999; margin-bottom: 24px; }}
-  ul {{ padding-left: 20px; line-height: 1.7; }}
-  a {{ color: #000; }}
+  body {{font-family:-apple-system,sans-serif;background:#0a0a0a;color:#e8e8e8;max-width:680px;margin:0 auto;padding:24px}}
+  h1 {{font-size:20px;border-bottom:1px solid #222;padding-bottom:12px;margin-bottom:4px}}
+  h2 {{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#555;margin:28px 0 10px}}
+  ul {{list-style:none;padding:0;margin:0}}
+  .meta {{font-size:12px;color:#444;margin-bottom:24px}}
+  a {{color:#fff}}
 </style>
 </head>
 <body>
-  <h1>Project Snake — Daily Digest</h1>
-  <p class="meta">{date} &nbsp;·&nbsp; {count_str} &nbsp;·&nbsp;
-    <a href="http://localhost:8000">Open dashboard</a>
+  <h1>Project Snake — Breakout Apps</h1>
+  <p class='meta'>{date} &nbsp;·&nbsp; {summary.get('unique_apps',0)} breakout apps across 11 countries &nbsp;·&nbsp;
+    <a href='http://localhost:8000/breakouts/{date}' style='color:#888'>Open dashboard</a>
   </p>
 
-  <div class="headline">{summary.get("headline", "No summary available.")}</div>
+  <h2>New Entries — appeared in top 100 for the first time in 7 days</h2>
+  <ul>{new_html}</ul>
 
-  <h2>Chart Highlights</h2>
-  {ul(summary.get("chart_highlights", []))}
-
-  <h2>Top Articles</h2>
-  <ul>{articles_html or "<li><em>No articles today</em></li>"}</ul>
-
-  <h2>Twitter Signals</h2>
-  {ul(summary.get("twitter_signals", []))}
-
-  <h2>Watch List</h2>
-  {ul(summary.get("watch_list", []))}
+  <h2>Rising — jumped 25+ positions</h2>
+  <ul>{rising_html}</ul>
 </body>
 </html>"""
 
 
-def send_digest_email(date: str, summary: dict):
+def send_breakout_email(date: str, summary: dict, breakouts_full: list = None):
     if not SMTP_USER or not SMTP_PASSWORD:
         print("[digest] SMTP credentials not set — skipping email")
         return
 
+    unique = summary.get("unique_apps", 0)
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"Project Snake: {date} — {summary.get('headline', 'Daily digest')[:60]}"
+    msg["Subject"] = f"Snake {date}: {unique} breakout apps detected"
     msg["From"] = SMTP_USER
     msg["To"] = DIGEST_EMAIL
 
-    plain = summary.get("headline", "See HTML version.")
-    msg.attach(MIMEText(plain, "plain"))
+    msg.attach(MIMEText(f"{unique} breakout apps detected on {date}.", "plain"))
     msg.attach(MIMEText(build_html(date, summary), "html"))
 
     try:

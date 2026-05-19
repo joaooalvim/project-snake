@@ -1,7 +1,3 @@
-"""
-FastAPI dashboard — browse digests and raw collected data.
-Run: uvicorn dashboard.app:app --reload --port 8000
-"""
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
@@ -10,44 +6,82 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from storage.db import init_db, list_digests, get_digest, get_day_data
+from storage.db import init_db, get_breakouts, get_breakout_dates, get_digest, list_digests
 
 app = FastAPI(title="Project Snake")
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
 
 init_db()
 
+COUNTRY_FLAG = {
+    "us": "🇺🇸", "ca": "🇨🇦", "gb": "🇬🇧", "de": "🇩🇪", "fr": "🇫🇷",
+    "es": "🇪🇸", "br": "🇧🇷", "ro": "🇷🇴", "au": "🇦🇺", "nz": "🇳🇿", "za": "🇿🇦",
+}
+CHART_LABEL = {
+    "free":               "Overall",
+    "free_games":         "Games",
+    "free_social":        "Social",
+    "free_entertainment": "Entertainment",
+    "free_photo":         "Photo & Video",
+    "free_productivity":  "Productivity",
+    "free_finance":       "Finance",
+}
+
+templates.env.globals["COUNTRY_FLAG"] = COUNTRY_FLAG
+templates.env.globals["CHART_LABEL"] = CHART_LABEL
+
+
+def _group_breakouts(rows: list) -> list:
+    """Group by app_id, aggregate countries."""
+    from collections import defaultdict
+    by_app = defaultdict(list)
+    for r in rows:
+        by_app[r["app_id"]].append(r)
+    grouped = []
+    for app_id, app_rows in by_app.items():
+        first = app_rows[0]
+        grouped.append({
+            **first,
+            "countries": [r["country"] for r in app_rows],
+            "charts":    list({r["chart_type"] for r in app_rows}),
+            "country_count": len(app_rows),
+            "appstore_url": f"https://apps.apple.com/app/id{app_id}",
+        })
+    return sorted(grouped, key=lambda x: (-x["country_count"], x["rank_today"]))
+
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    digests = list_digests(30)
-    latest_date = digests[0]["date"] if digests else date.today().isoformat()
-    digest = get_digest(latest_date)
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "digests": digests,
-        "digest": digest,
-        "selected_date": latest_date,
+    dates = get_breakout_dates(60)
+    if dates:
+        latest = dates[0]["date"]
+        rows = get_breakouts(latest)
+        grouped = _group_breakouts(rows)
+    else:
+        latest = date.today().isoformat()
+        grouped = []
+    return templates.TemplateResponse("breakouts.html", {
+        "request":       request,
+        "dates":         dates,
+        "selected_date": latest,
+        "breakouts":     grouped,
     })
 
 
-@app.get("/digest/{date_str}", response_class=HTMLResponse)
-async def digest_page(request: Request, date_str: str):
-    digests = list_digests(30)
-    digest = get_digest(date_str)
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "digests": digests,
-        "digest": digest,
+@app.get("/breakouts/{date_str}", response_class=HTMLResponse)
+async def breakouts_page(request: Request, date_str: str):
+    dates = get_breakout_dates(60)
+    rows = get_breakouts(date_str)
+    grouped = _group_breakouts(rows)
+    return templates.TemplateResponse("breakouts.html", {
+        "request":       request,
+        "dates":         dates,
         "selected_date": date_str,
+        "breakouts":     grouped,
     })
 
 
-@app.get("/api/digest/{date_str}")
-async def api_digest(date_str: str):
-    return get_digest(date_str) or {}
-
-
-@app.get("/api/raw/{date_str}")
-async def api_raw(date_str: str):
-    return get_day_data(date_str)
+@app.get("/api/breakouts/{date_str}")
+async def api_breakouts(date_str: str):
+    rows = get_breakouts(date_str)
+    return _group_breakouts(rows)
