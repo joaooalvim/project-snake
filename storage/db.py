@@ -171,6 +171,25 @@ def get_breakout_dates(limit: int = 30) -> list:
     return [dict(r) for r in rows]
 
 
+def get_articles(date: str) -> list:
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT * FROM articles WHERE date = ? ORDER BY id", (date,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_article_dates(limit: int = 60) -> list:
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT date, COUNT(*) as count FROM articles
+           GROUP BY date ORDER BY date DESC LIMIT ?""", (limit,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
 def save_articles(date: str, source: str, articles: list):
     conn = get_conn()
     now = datetime.utcnow().isoformat()

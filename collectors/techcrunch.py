@@ -12,7 +12,7 @@ APP_KEYWORDS = {
     "startup", "funding", "series a", "series b", "acqui", "ipo", "download",
     "developer", "sdk", "saas", "consumer app",
 }
-MAX_ARTICLES = 20
+MAX_ARTICLES = 50
 
 
 def fetch() -> list[dict]:
@@ -31,10 +31,6 @@ def fetch() -> list[dict]:
         title = (item.findtext("title") or "").strip()
         url = (item.findtext("link") or "").strip()
         description = (item.findtext("description") or "").strip()
-
-        combined = (title + " " + description).lower()
-        if not any(kw in combined for kw in APP_KEYWORDS):
-            continue
 
         articles.append({"title": title, "url": url, "summary": description[:300]})
         if len(articles) >= MAX_ARTICLES:

@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from storage.db import init_db, get_breakouts, get_breakout_dates, get_digest, list_digests
+from storage.db import init_db, get_breakouts, get_breakout_dates, get_articles, get_article_dates
 
 app = FastAPI(title="Project Snake")
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
@@ -100,3 +100,24 @@ async def breakouts_page(request: Request, date_str: str):
 async def api_breakouts(date_str: str):
     rows = get_breakouts(date_str)
     return _group_breakouts(rows)
+
+
+@app.get("/news", response_class=HTMLResponse)
+async def news_index(request: Request):
+    dates = get_article_dates(60)
+    latest = dates[0]["date"] if dates else date.today().isoformat()
+    articles = get_articles(latest)
+    return templates.TemplateResponse("news.html", {
+        "request": request, "dates": dates,
+        "selected_date": latest, "articles": articles,
+    })
+
+
+@app.get("/news/{date_str}", response_class=HTMLResponse)
+async def news_page(request: Request, date_str: str):
+    dates = get_article_dates(60)
+    articles = get_articles(date_str)
+    return templates.TemplateResponse("news.html", {
+        "request": request, "dates": dates,
+        "selected_date": date_str, "articles": articles,
+    })
