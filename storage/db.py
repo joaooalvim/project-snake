@@ -58,6 +58,7 @@ def init_db():
             title       TEXT NOT NULL,
             url         TEXT NOT NULL UNIQUE,
             summary     TEXT,
+            image_url   TEXT,
             fetched_at  TEXT NOT NULL
         );
 
@@ -195,9 +196,9 @@ def save_articles(date: str, source: str, articles: list):
     now = datetime.utcnow().isoformat()
     for a in articles:
         conn.execute(
-            """INSERT OR IGNORE INTO articles (date, source, title, url, summary, fetched_at)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (date, source, a["title"], a["url"], a.get("summary"), now),
+            """INSERT OR IGNORE INTO articles (date, source, title, url, summary, image_url, fetched_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (date, source, a["title"], a["url"], a.get("summary"), a.get("image_url"), now),
         )
     conn.commit()
     conn.close()
