@@ -51,6 +51,21 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_breakouts_date
             ON breakouts(date DESC);
 
+        CREATE TABLE IF NOT EXISTS reddit_posts (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            date         TEXT NOT NULL,
+            post_id      TEXT NOT NULL UNIQUE,
+            subreddit    TEXT NOT NULL,
+            category     TEXT NOT NULL,
+            title        TEXT NOT NULL,
+            score        INTEGER DEFAULT 0,
+            num_comments INTEGER DEFAULT 0,
+            permalink    TEXT,
+            fetched_at   TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_reddit_date ON reddit_posts(date DESC);
+
         CREATE TABLE IF NOT EXISTS trends (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             date        TEXT NOT NULL,
@@ -183,6 +198,42 @@ def get_breakout_dates(limit: int = 30) -> list:
         """SELECT date, COUNT(*) as count FROM breakouts
            GROUP BY date ORDER BY date DESC LIMIT ?""",
         (limit,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def save_reddit_posts(date: str, posts: list):
+    conn = get_conn()
+    now = datetime.utcnow().isoformat()
+    conn.executemany(
+        """INSERT OR IGNORE INTO reddit_posts
+           (date, post_id, subreddit, category, title, score, num_comments, permalink, fetched_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        [(date, p["post_id"], p["subreddit"], p["category"],
+          p["title"], p["score"], p["num_comments"], p["permalink"], now)
+         for p in posts],
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_reddit_posts(date: str) -> list:
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT * FROM reddit_posts WHERE date = ?
+           ORDER BY category, score DESC""",
+        (date,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_reddit_dates(limit: int = 60) -> list:
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT date, COUNT(*) as count FROM reddit_posts
+           GROUP BY date ORDER BY date DESC LIMIT ?""", (limit,)
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]

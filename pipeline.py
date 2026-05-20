@@ -4,10 +4,10 @@ Run this daily (via scheduler.py or directly: python pipeline.py).
 """
 from datetime import date
 
-from collectors import appstore, techcrunch, twitter, trends as trends_collector
+from collectors import appstore, techcrunch, twitter, trends as trends_collector, reddit as reddit_collector
 from detectors import breakout as breakout_detector
 from storage.db import (
-    init_db, save_chart_entries, save_articles, save_tweets, save_trends,
+    init_db, save_chart_entries, save_articles, save_tweets, save_trends, save_reddit_posts,
     get_day_data, save_digest, get_breakouts,
 )
 
@@ -36,6 +36,11 @@ def collect(today: str) -> dict:
     for country, items in all_trends.items():
         if items:
             save_trends(today, country, items)
+
+    print("[pipeline] collecting Reddit")
+    reddit_posts = reddit_collector.fetch()
+    if reddit_posts:
+        save_reddit_posts(today, reddit_posts)
 
     return charts
 
