@@ -97,30 +97,24 @@ async def date_redirect(date_str: str):
 async def breakouts_page(request: Request, date_str: str):
     dates = _get_dates()
     grouped = _group_breakouts(get_breakouts(date_str))
-    return templates.TemplateResponse("breakouts.html", {
-        "request": request, "dates": dates,
-        "selected_date": date_str, "breakouts": grouped,
-        **SHARED,
+    return templates.TemplateResponse(request, "breakouts.html", {
+        "dates": dates, "selected_date": date_str, "breakouts": grouped, **SHARED,
     })
 
 
 @app.get("/{date_str}/news", response_class=HTMLResponse)
 async def news_page(request: Request, date_str: str):
     dates = _get_dates()
-    return templates.TemplateResponse("news.html", {
-        "request": request, "dates": dates,
-        "selected_date": date_str, "articles": get_articles(date_str),
-        **SHARED,
+    return templates.TemplateResponse(request, "news.html", {
+        "dates": dates, "selected_date": date_str, "articles": get_articles(date_str), **SHARED,
     })
 
 
 @app.get("/{date_str}/trends", response_class=HTMLResponse)
 async def trends_page(request: Request, date_str: str):
     dates = _get_dates()
-    return templates.TemplateResponse("trends.html", {
-        "request": request, "dates": dates,
-        "selected_date": date_str, "trends": get_us_trends_24h(date_str),
-        **SHARED,
+    return templates.TemplateResponse(request, "trends.html", {
+        "dates": dates, "selected_date": date_str, "trends": get_us_trends_24h(date_str), **SHARED,
     })
 
 
@@ -132,10 +126,9 @@ async def reddit_page(request: Request, date_str: str):
     by_category = defaultdict(list)
     for p in posts:
         by_category[p["category"]].append(p)
-    return templates.TemplateResponse("reddit.html", {
-        "request": request, "dates": dates,
-        "selected_date": date_str, "by_category": dict(by_category),
-        "total": len(posts), **SHARED,
+    return templates.TemplateResponse(request, "reddit.html", {
+        "dates": dates, "selected_date": date_str,
+        "by_category": dict(by_category), "total": len(posts), **SHARED,
     })
 
 
